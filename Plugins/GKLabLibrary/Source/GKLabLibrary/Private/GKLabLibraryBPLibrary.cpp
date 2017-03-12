@@ -2,6 +2,7 @@
 
 #include "GKLabLibrary.h"
 #include "GKLabLibraryBPLibrary.h"
+#include "FileManagerGeneric.h"
 #include <stdio.h>
 #include <tchar.h>
 #include <iterator>
@@ -261,7 +262,7 @@ void UGKLabLibraryBPLibrary::CreateSpecification()
 }
 
 
-void UGKLabLibraryBPLibrary::CreateFileOfElements()
+void UGKLabLibraryBPLibrary::CreateFileOfElements(FString FileName, bool AddDateTime)
 {
 	if (!GEngine)
 	{
@@ -289,7 +290,7 @@ void UGKLabLibraryBPLibrary::CreateFileOfElements()
 		return;
 	}
 
-	FString strToSaveIntoFile = "Num,Level,Actor,Mesh,Element,Comment,Tag,PrintableName\r\n";
+	FString strToSaveIntoFile = "Num,Level,""Actor Name"",""Actor FName"",""Actor UniqueID"",""Actor FullName"",Mesh,Element,Material,Comment,""Document Placeholder"",""Document Text""\r\n";
 	int csvRecordNum = 1;
 
 	for (FConstLevelIterator levelItr = world->GetLevelIterator(); levelItr; ++levelItr)
@@ -301,7 +302,7 @@ void UGKLabLibraryBPLibrary::CreateFileOfElements()
 			continue;
 		}
 
-		FString strLevel = level->GetName();
+		FString strLevelName = level->GetName();
 
 		TArray<AActor *> actors = level->Actors;
 		for (int32 a = 0; a < actors.Num(); a++)
@@ -313,30 +314,40 @@ void UGKLabLibraryBPLibrary::CreateFileOfElements()
 				continue;
 			}
 
-			FString strActor = actor->GetFullName();
-			FString strActor1 = actor->GetName();
-			FName strActor2 = actor->GetFName();
-			uint32 strActor3 = actor->GetUniqueID();
+			FString strActorUniqueID = FString::FromInt(actor->GetUniqueID());
+			FString strActorFullName = actor->GetFullName();
+			FString strActorName = actor->GetName();
+			FString strActorFName = actor->GetFName().ToString();
 
 			TArray<UStaticMeshComponent*> Components;
 			actor->GetComponents<UStaticMeshComponent>(Components);
 
 			for (int32 i = 0; i < Components.Num(); i++)
 			{
-				UStaticMeshComponent* StaticMeshComponent = Components[i];
-				UStaticMesh* StaticMesh = StaticMeshComponent->GetStaticMesh();
+				UStaticMeshComponent* staticMeshComponent = Components[i];
+				UStaticMesh* staticMesh = staticMeshComponent->GetStaticMesh();
 
-				if (StaticMesh != NULL)
+				if (staticMesh != NULL)
 				{
-					TArray<UMaterialInterface*> Materials = StaticMesh->Materials_DEPRECATED;
-					FString strMesh = StaticMesh->GetFullName();
+					FString strMeshFullName = staticMesh->GetFullName();
 
-					for (int32 j = 0; j < Materials.Num(); j++)
+					for (int32 j = 0; j < staticMeshComponent->GetNumMaterials(); j++)
 					{
-						UMaterialInstance* currentMaterial = (UMaterialInstance*)StaticMeshComponent->GetMaterial(j);
+						UMaterialInstance* currentMaterial = (UMaterialInstance*)staticMeshComponent->GetMaterial(j);
+
 						if (currentMaterial != NULL)
 						{
-							strToSaveIntoFile += FString::FromInt(csvRecordNum) + "," + strLevel + "," + strActor + "," + strMesh + "," + FString::FromInt(j) + ",,,\r\n";
+							strToSaveIntoFile += FString::FromInt(csvRecordNum) 
+								+ "," + strLevelName 
+								+ "," + strActorName
+								+ "," + strActorFName
+								+ "," + strActorUniqueID
+								+ "," + strActorFullName 
+								+ "," + strMeshFullName 
+								+ "," + FString::FromInt(j) 
+								+ "," + currentMaterial->GetFullName()
+								+ ",,\r\n"; // Comment,""Document Placeholder"",""Document Text"" are empty
+							
 							csvRecordNum++;
 						}
 					}
@@ -344,8 +355,6 @@ void UGKLabLibraryBPLibrary::CreateFileOfElements()
 			}
 		}
 	}
-
-	FDateTime CurrentDateTime = (FDateTime()).Now();
 
 	FString gameSaveDir = FPaths::GameSavedDir();
 	FString gamePlayer = player->GetName();
@@ -355,12 +364,75 @@ void UGKLabLibraryBPLibrary::CreateFileOfElements()
 
 	if (PlatformFile.CreateDirectory(*savePlayerDirectory))
 	{
-		FString FileName = "AllElements-" + CurrentDateTime.ToString() + ".csv";
+		if (AddDateTime) 
+		{
+			FDateTime CurrentDateTime = (FDateTime()).Now();
+			FileName = FileName + "-" + CurrentDateTime.ToString();
+		}
+
+		FileName += ".csv";
 
 		FString AbsoluteFileName = savePlayerDirectory + "/" + FileName;
 
 		FFileHelper::SaveStringToFile(*strToSaveIntoFile, *AbsoluteFileName);
 	}
+}
+
+void GetMaterialsInFolder(
+	FString Directory,
+	FString Path,
+	TArray<UMaterialInstance*>* materialInstances,
+	TArray<UMaterialInterface*>* materials,
+	UObjectLibrary* lib)
+{
+	TArray<FString> output;
+	output.Empty();
+	if (FPaths::DirectoryExists(Directory))
+	{
+		FString path = Directory + "/*.*";
+		FFileManagerGeneric::Get().FindFiles(output, *path, false, true);
+
+		for (int i = 0; i < output.Num(); i++)
+		{
+			FString subDirectory = Directory + "/" + output[i];
+
+			FString subPath = Path + "/" + output[i];
+			lib->LoadAssetDataFromPath(subPath);
+			TArray<FAssetData> assetData;
+			lib->GetAssetDataList(assetData);
+
+			for (FAssetData asset : assetData) {
+				UObject* obj = asset.GetAsset();
+				UMaterialInstance* mi = Cast<UMaterialInstance>(obj);
+				if (mi) {
+					materialInstances->Add(mi);
+				}
+				else
+				{
+					UMaterialInterface* m = Cast<UMaterialInterface>(obj);
+					if (m) {
+						materials->Add(m);
+					}
+				}
+			}
+
+			GetMaterialsInFolder(subDirectory, subPath, materialInstances, materials, lib);
+		}
+	}
+}
+
+void UGKLabLibraryBPLibrary::CreateFileOfMaterials(FString FileName, bool AddDateTime)
+{
+	FString contentDir = FPaths::GameContentDir();
+
+	FPaths::NormalizeDirectoryName(contentDir);
+
+	TArray<UMaterialInstance*>* materialInstances = new TArray<UMaterialInstance*>();
+	TArray<UMaterialInterface*>* materials = new TArray<UMaterialInterface*>();
+
+	UObjectLibrary *lib = UObjectLibrary::CreateLibrary(UMaterialInstance::StaticClass(), false, true);
+	//lib->AddToRoot();
+	GetMaterialsInFolder(contentDir, "/Game", materialInstances, materials, lib);
 }
 
 //
