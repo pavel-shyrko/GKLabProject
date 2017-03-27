@@ -9,7 +9,6 @@ struct CsvMaterial
 {
 	int Num;
 	std::string Material;
-	std::string MaterialPath;
 	std::string MaterialFullName;
 	std::string Texture;
 	std::string ColorRed;

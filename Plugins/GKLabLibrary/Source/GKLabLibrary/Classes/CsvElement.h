@@ -10,11 +10,11 @@ struct CsvElement
 	int Num;
 	std::string Level;
 	std::string Actor;
-	std::string ActorFName;
 	std::string UniqueID;
 	std::string ActorFullName;
 	std::string Mesh;
 	int Element;
+	std::string Material;
 	std::string Comment;
 	std::string DocumentPlaceholder;
 	std::string DocumentText;

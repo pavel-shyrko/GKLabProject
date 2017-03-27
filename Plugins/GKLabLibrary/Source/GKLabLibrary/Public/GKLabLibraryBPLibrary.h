@@ -33,7 +33,7 @@ class UGKLabLibraryBPLibrary : public UBlueprintFunctionLibrary
 	static float GKLabLibrarySampleFunction(float Param);*/
 	
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Create Specification File", CompactNodeTitle = "Create Spec", Keywords = "GKLab"), Category = "GKLab")
-	static void CreateSpecification();
+	static void CreateSpecification(FString FileName, bool AddDateTime);
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Create File of Elements", CompactNodeTitle = "Create File Elem", Keywords = "GKLab"), Category = "GKLab")
 	static void CreateFileOfElements(FString FileName, bool AddDateTime);
@@ -45,7 +45,7 @@ class UGKLabLibraryBPLibrary : public UBlueprintFunctionLibrary
 
 	static std::vector<CsvElement> ProjectElements;
 
-	static bool FindElement(std::string& actor, std::string& mesh, int element, CsvElement& result);
-
-	//TArray<FString> GetFilesInFolder(FString Directory);
+	static bool FindElement(std::string& level, std::string& actor, std::string& mesh, int element, CsvElement& result);
+	
+	static bool UGKLabLibraryBPLibrary::FindMaterial(std::string& material, std::string& texture, CsvMaterial& result);
 };
