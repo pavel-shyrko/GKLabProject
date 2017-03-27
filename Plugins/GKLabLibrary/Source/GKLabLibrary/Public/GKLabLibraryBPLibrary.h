@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Pavel Shyrko. All Rights Reserved.
+
 #include <vector>
 
 #pragma once
@@ -54,5 +54,5 @@ class UGKLabLibraryBPLibrary : public UBlueprintFunctionLibrary
 
 	static bool FindElement(std::string& actor, std::string& mesh, int element, CsvElement& result);
 
-	TArray<FString> GetFilesInFolder(FString Directory);
+	//TArray<FString> GetFilesInFolder(FString Directory);
 };

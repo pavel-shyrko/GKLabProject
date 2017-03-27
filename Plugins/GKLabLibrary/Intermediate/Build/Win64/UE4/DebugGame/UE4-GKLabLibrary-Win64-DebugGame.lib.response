@@ -1,0 +1,7 @@
+/NOLOGO
+/errorReport:prompt
+/MACHINE:x64
+/SUBSYSTEM:WINDOWS
+"D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Intermediate\Build\Win64\UE4\DebugGame\GKLabLibrary\Module.GKLabLibrary.cpp.obj"
+"D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Intermediate\Build\Win64\UE4\DebugGame\GKLabLibrary\GKLabLibrary.generated.cpp.obj"
+/OUT:"D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Binaries\Win64\UE4-GKLabLibrary-Win64-DebugGame.lib"

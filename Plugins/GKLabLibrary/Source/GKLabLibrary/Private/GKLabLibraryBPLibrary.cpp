@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Pavel Shyrko. All Rights Reserved.
+
 
 #include "GKLabLibrary.h"
 #include "GKLabLibraryBPLibrary.h"
@@ -378,51 +378,92 @@ void UGKLabLibraryBPLibrary::CreateFileOfElements(FString FileName, bool AddDate
 	}
 }
 
+void LoadMaterialsInFolder(
+	FString Directory,
+	FString Path,
+	TArray<UMaterialInstance*>* materialInstances,
+	TArray<UMaterialInterface*>* materials)
+{
+	FString path = Directory + "/*.uasset";
+	TArray<FString> files;
+	files.Empty();
+	FFileManagerGeneric::Get().FindFiles(files, *path, true, false);
+	for (int i = 0; i < files.Num(); i++)
+	{
+		size_t lastindex = files[i].Find(".", ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+		FString fileName = files[i].Left(lastindex);
+
+		FString materialInstanceAssetPath = "MaterialInstanceConstant'" + Path + "/" + fileName + "." + fileName + "'";
+
+		auto materialInstanceClass = StaticLoadObject(UObject::StaticClass(), nullptr, *materialInstanceAssetPath);
+		UMaterialInstance * materialInstance = Cast<UMaterialInstance>(materialInstanceClass);
+
+		if (materialInstance != NULL) {
+			materialInstances->Add(materialInstance);
+		}
+		else {
+			FString materialAssetPath = "Material'" + Path + "/" + fileName + "." + fileName + "'";
+			auto materialClass = StaticLoadObject(UObject::StaticClass(), nullptr, *materialAssetPath);
+			UMaterialInterface * material = Cast<UMaterialInterface>(materialClass);
+
+			if (material != NULL) {
+				materials->Add(material);
+			}
+		}
+	}
+}
+
 void GetMaterialsInFolder(
 	FString Directory,
 	FString Path,
 	TArray<UMaterialInstance*>* materialInstances,
-	TArray<UMaterialInterface*>* materials,
-	UObjectLibrary* lib)
+	TArray<UMaterialInterface*>* materials)
 {
-	TArray<FString> output;
-	output.Empty();
 	if (FPaths::DirectoryExists(Directory))
 	{
+		LoadMaterialsInFolder(Directory, Path, materialInstances, materials);
+
 		FString path = Directory + "/*.*";
-		FFileManagerGeneric::Get().FindFiles(output, *path, false, true);
-
-		for (int i = 0; i < output.Num(); i++)
+		TArray<FString> subDirs;
+		subDirs.Empty();
+		FFileManagerGeneric::Get().FindFiles(subDirs, *path, false, true);
+		for (int i = 0; i < subDirs.Num(); i++)
 		{
-			FString subDirectory = Directory + "/" + output[i];
-
-			FString subPath = Path + "/" + output[i];
-			lib->LoadAssetDataFromPath(subPath);
-			TArray<FAssetData> assetData;
-			lib->GetAssetDataList(assetData);
-
-			for (FAssetData asset : assetData) {
-				UObject* obj = asset.GetAsset();
-				UMaterialInstance* mi = Cast<UMaterialInstance>(obj);
-				if (mi) {
-					materialInstances->Add(mi);
-				}
-				else
-				{
-					UMaterialInterface* m = Cast<UMaterialInterface>(obj);
-					if (m) {
-						materials->Add(m);
-					}
-				}
-			}
-
-			GetMaterialsInFolder(subDirectory, subPath, materialInstances, materials, lib);
+			FString subDirectory = Directory + "/" + subDirs[i];
+			FString subPath = Path + "/" + subDirs[i];
+			GetMaterialsInFolder(subDirectory, subPath, materialInstances, materials);
 		}
 	}
 }
 
 void UGKLabLibraryBPLibrary::CreateFileOfMaterials(FString FileName, bool AddDateTime)
 {
+	if (!GEngine)
+	{
+		return;
+	}
+
+	// Receive local players list
+	TArray<APlayerController*> playerList;
+	GEngine->GetAllLocalPlayerControllers(playerList);
+	if (sizeof(playerList) == 0)
+	{
+		return;
+	}
+
+	// Recieve first local player
+	ULocalPlayer* player = GEngine->FindFirstLocalPlayerFromControllerId(0);
+	if (!player)
+	{
+		return;
+	}
+
+	UWorld* world = player->GetWorld();
+	if (!world)
+	{
+		return;
+	}
+
 	FString contentDir = FPaths::GameContentDir();
 
 	FPaths::NormalizeDirectoryName(contentDir);
@@ -430,10 +471,163 @@ void UGKLabLibraryBPLibrary::CreateFileOfMaterials(FString FileName, bool AddDat
 	TArray<UMaterialInstance*>* materialInstances = new TArray<UMaterialInstance*>();
 	TArray<UMaterialInterface*>* materials = new TArray<UMaterialInterface*>();
 
-	UObjectLibrary *lib = UObjectLibrary::CreateLibrary(UMaterialInstance::StaticClass(), false, true);
-	//lib->AddToRoot();
-	GetMaterialsInFolder(contentDir, "/Game", materialInstances, materials, lib);
+	GetMaterialsInFolder(contentDir, "/Game", materialInstances, materials);
+
+	FString strToSaveIntoFile = "Num,Material,\"Material Path\",Texture,ColorR,ColorG,ColorB,Comment,\"Document Placeholder\",\"Document Text\"\r\n";
+	int csvRecordNum = 1;
+
+	for (int32 i = 0; i < materialInstances->Num(); i++)
+	{
+		UMaterialInstance* currentMaterialInstance = (*materialInstances)[i];
+
+		FString strCurrentName = currentMaterialInstance->GetName();
+		FString strCurrentPath = currentMaterialInstance->GetPathName();
+
+		FString strCurrentTexture;
+		UTexture* currentTexture;
+		if (currentMaterialInstance->GetTextureParameterOverrideValue(FName("Diffuse"), currentTexture))
+		{
+			strCurrentTexture = currentTexture->GetName();
+		}
+
+		FLinearColor currentColor = FLinearColor();
+		/*FString strCurrentColor;
+		if (currentMaterial->GetVectorParameterValue(FName("Color"), currentColor))
+		{
+		strCurrentColor = """rgb(" + FString::FromInt((currentColor.R * 255))
+		+ "," + FString::FromInt((currentColor.G * 255))
+		+ "," + FString::FromInt((currentColor.B * 255))
+		+ ")""";
+		}*/
+
+		strToSaveIntoFile += FString::FromInt(csvRecordNum)
+			+ "," + strCurrentName
+			+ "," + strCurrentPath
+			+ "," + strCurrentTexture
+			+ "," + FString::SanitizeFloat(currentColor.R)
+			+ "," + FString::SanitizeFloat(currentColor.G)
+			+ "," + FString::SanitizeFloat(currentColor.B)
+			//+ "," + strCurrentColor
+			+ ",,\r\n"; // Comment,""Document Placeholder"",""Document Text"" are empty
+
+		csvRecordNum++;
+	}
+
+	for (int32 i = 0; i < materials->Num(); i++)
+	{
+		UMaterialInterface* currentMaterial = (*materials)[i];
+
+		FString strCurrentName = currentMaterial->GetName();
+		FString strCurrentPath = currentMaterial->GetPathName();
+
+		FString strCurrentTexture;
+		UTexture* currentTexture;
+		if (currentMaterial->GetTextureParameterOverrideValue(FName("Diffuse"), currentTexture))
+		{
+			strCurrentTexture = currentTexture->GetName();
+		}
+
+		FLinearColor currentColor = FLinearColor();		
+		/*FString strCurrentColor;
+		if (currentMaterial->GetVectorParameterValue(FName("Color"), currentColor))
+		{
+			strCurrentColor = """rgb(" + FString::FromInt((currentColor.R * 255))
+				+ "," + FString::FromInt((currentColor.G * 255))
+				+ "," + FString::FromInt((currentColor.B * 255))
+				+ ")""";
+		}*/
+
+		strToSaveIntoFile += FString::FromInt(csvRecordNum)
+			+ "," + strCurrentName
+			+ "," + strCurrentPath
+			+ "," + strCurrentTexture
+			+ "," + FString::SanitizeFloat(currentColor.R)
+			+ "," + FString::SanitizeFloat(currentColor.G)
+			+ "," + FString::SanitizeFloat(currentColor.B)
+			//+ "," + strCurrentColor
+			+ ",,\r\n"; // Comment,""Document Placeholder"",""Document Text"" are empty
+
+		csvRecordNum++;
+	}
+
+	FString gameSaveDir = FPaths::GameSavedDir();
+	FString gamePlayer = player->GetName();
+
+	FString savePlayerDirectory = gameSaveDir + gamePlayer;
+	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+
+	if (PlatformFile.CreateDirectory(*savePlayerDirectory))
+	{
+		if (AddDateTime)
+		{
+			FDateTime CurrentDateTime = (FDateTime()).Now();
+			FileName = FileName + "-" + CurrentDateTime.ToString();
+		}
+
+		FileName += ".csv";
+
+		FString AbsoluteFileName = savePlayerDirectory + "/" + FileName;
+
+		FFileHelper::SaveStringToFile(*strToSaveIntoFile, *AbsoluteFileName);
+	}
 }
+
+//void GetMaterialsInFolder(
+//	FString Directory,
+//	FString Path,
+//	TArray<UMaterialInstance*>* materialInstances,
+//	TArray<UMaterialInterface*>* materials,
+//	UObjectLibrary* lib)
+//{
+//	TArray<FString> output;
+//	output.Empty();
+//	if (FPaths::DirectoryExists(Directory))
+//	{
+//		FString path = Directory + "/*.*";
+//		FFileManagerGeneric::Get().FindFiles(output, *path, false, true);
+//
+//		for (int i = 0; i < output.Num(); i++)
+//		{
+//			FString subDirectory = Directory + "/" + output[i];
+//
+//			FString subPath = Path + "/" + output[i];
+//			lib->LoadAssetDataFromPath(subPath);
+//			TArray<FAssetData> assetData;
+//			lib->GetAssetDataList(assetData);
+//
+//			for (FAssetData asset : assetData) {
+//				UObject* obj = asset.GetAsset();
+//				UMaterialInstance* mi = Cast<UMaterialInstance>(obj);
+//				if (mi) {
+//					materialInstances->Add(mi);
+//				}
+//				else
+//				{
+//					UMaterialInterface* m = Cast<UMaterialInterface>(obj);
+//					if (m) {
+//						materials->Add(m);
+//					}
+//				}
+//			}
+//
+//			GetMaterialsInFolder(subDirectory, subPath, materialInstances, materials, lib);
+//		}
+//	}
+//}
+
+//void UGKLabLibraryBPLibrary::CreateFileOfMaterials(FString FileName, bool AddDateTime)
+//{
+//	FString contentDir = FPaths::GameContentDir();
+//
+//	FPaths::NormalizeDirectoryName(contentDir);
+//
+//	TArray<UMaterialInstance*>* materialInstances = new TArray<UMaterialInstance*>();
+//	TArray<UMaterialInterface*>* materials = new TArray<UMaterialInterface*>();
+//
+//	UObjectLibrary *lib = UObjectLibrary::CreateLibrary(UMaterialInstance::StaticClass(), false, true);
+//
+//	GetMaterialsInFolder(contentDir, "/Game", materialInstances, materials, lib);
+//}
 
 //
 //void UPSBlueprintFunctionLibrary::LoadMaterialsCSV()
