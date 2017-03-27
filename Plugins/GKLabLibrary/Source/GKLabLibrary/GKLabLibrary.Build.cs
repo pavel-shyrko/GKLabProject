@@ -19,7 +19,7 @@ public class GKLabLibrary : ModuleRules
 		PrivateIncludePaths.AddRange(
 			new string[] {
 				"GKLabLibrary/Private",
-				
+                "GKLabLibrary/Classes",
 				// ... add other private include paths required here ...
 			}
 			);

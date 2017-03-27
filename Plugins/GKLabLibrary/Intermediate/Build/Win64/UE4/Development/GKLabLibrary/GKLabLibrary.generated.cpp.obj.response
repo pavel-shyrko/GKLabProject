@@ -21,7 +21,9 @@
 /w44668
 /I "C:\Program Files\Epic Games\UE_4.15\Engine\Source"
 /I "D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Source\GKLabLibrary\Private"
+/I "D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Source\GKLabLibrary\Classes"
 /I "D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Source"
+/I "D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Source\GKLabLibrary\Classes"
 /I "D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Source\GKLabLibrary\Public"
 /I "D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Intermediate\Build\Win64\UE4\Inc\GKLabLibrary"
 /I "D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Source\GKLabLibrary"
@@ -253,6 +255,7 @@
 /D_HAS_EXCEPTIONS=0
 "D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Intermediate\Build\Win64\UE4\Inc\GKLabLibrary\GKLabLibrary.generated.cpp"
 /Fo"D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Intermediate\Build\Win64\UE4\Development\GKLabLibrary\GKLabLibrary.generated.cpp.obj"
+/Fd"D:\Unreal Projects\GKLabProject\Plugins\GKLabLibrary\Intermediate\Build\Win64\UE4\Development\GKLabLibrary\GKLabLibrary.generated.cpp.pdb"
 /TP
 /GR-
 /W4

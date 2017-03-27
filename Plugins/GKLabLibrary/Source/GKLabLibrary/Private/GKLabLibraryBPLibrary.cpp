@@ -1,56 +1,7 @@
-
-
 #include "GKLabLibrary.h"
 #include "GKLabLibraryBPLibrary.h"
 #include "FileManagerGeneric.h"
-#include <stdio.h>
-#include <tchar.h>
-#include <iterator>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <string>
-#include <algorithm>
-#include <cctype>
-
-class CSVRow
-{
-public:
-	std::string const& operator[](std::size_t index) const
-	{
-		return m_data[index];
-	}
-
-	std::size_t size() const
-	{
-		return m_data.size();
-	}
-
-	void readNextRow(std::istream& str)
-	{
-		std::string line;
-		std::getline(str, line);
-
-		std::stringstream lineStream(line);
-		std::string cell;
-
-		m_data.clear();
-		while (std::getline(lineStream, cell, ','))
-		{
-			m_data.push_back(cell);
-		}
-		// This checks for a trailing comma with no data after it.
-		if (!lineStream && cell.empty())
-		{
-			// If there was a trailing comma then add an empty element.
-			m_data.push_back("");
-		}
-	}
-
-private:
-	std::vector<std::string> m_data;
-};
+#include "CsvRow.h"
 
 std::istream& operator >> (std::istream& str, CSVRow& data)
 {
@@ -64,43 +15,75 @@ bool is_number(const std::string& s)
 		s.end(), [](char c) { return !std::isdigit(c); }) == s.end();
 }
 
-std::vector<CsvElement> UGKLabLibraryBPLibrary::Elements;
+std::vector<CsvMaterial> UGKLabLibraryBPLibrary::ProjectMaterials;
+
+std::vector<CsvElement> UGKLabLibraryBPLibrary::ProjectElements;
 
 UGKLabLibraryBPLibrary::UGKLabLibraryBPLibrary(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	Elements.clear();
+	ProjectElements.clear();
 
 	FString gameConfigDir = FPaths::GameConfigDir();
 
-	FString filePath = gameConfigDir + "/AllElements.csv";
+	FString elementsFilePath = gameConfigDir + "/Elements.csv";
 
-	std::ifstream file(TCHAR_TO_UTF8(*filePath));
+	std::ifstream elementsFile(TCHAR_TO_UTF8(*elementsFilePath));
 
-	CSVRow row;
-	while (file >> row)
+	CSVRow elementCsvRow;
+	while (elementsFile >> elementCsvRow)
 	{
 		CsvElement* element = new CsvElement();
 
-		element->Num = is_number(row[0]) ? std::stoi(row[0]) : 0;
-		element->Actor = row[1];
-		element->Mesh = row[2];
-		element->Element = is_number(row[3]) ? std::stoi(row[3]) : 0;
-		element->Comment = row[4];
-		element->Description = row[5];
+		element->Num = is_number(elementCsvRow[0]) ? std::stoi(elementCsvRow[0]) : 0;
+		element->Level = elementCsvRow[1];
+		element->Actor = elementCsvRow[2];
+		element->ActorFName = elementCsvRow[3];
+		element->UniqueID = elementCsvRow[4];
+		element->ActorFullName = elementCsvRow[5];
+		element->Mesh = elementCsvRow[6];
+		element->Element = is_number(elementCsvRow[7]) ? std::stoi(elementCsvRow[7]) : 0;
+		element->Comment = elementCsvRow[8];
+		element->DocumentPlaceholder = elementCsvRow[9];
+		element->DocumentText = elementCsvRow[10];
 
-		Elements.push_back(*element);
+		ProjectElements.push_back(*element);
+	}
+
+	ProjectMaterials.clear();
+
+	FString materialsFilePath = gameConfigDir + "/Materials.csv";
+
+	std::ifstream materialFile(TCHAR_TO_UTF8(*materialsFilePath));
+
+	CSVRow materialCsvRow;
+	while (materialFile >> materialCsvRow)
+	{
+		CsvMaterial* material = new CsvMaterial();
+
+		material->Num = is_number(materialCsvRow[0]) ? std::stoi(materialCsvRow[0]) : 0;
+		material->Material = materialCsvRow[1];
+		material->MaterialPath = materialCsvRow[2];
+		material->MaterialFullName = materialCsvRow[3];
+		material->Texture = materialCsvRow[4];
+		material->ColorRed = materialCsvRow[5];
+		material->ColorGreen = materialCsvRow[6];
+		material->ColorBlue = materialCsvRow[7];
+		material->Comment = materialCsvRow[8];
+		material->DocumentText = materialCsvRow[9];
+
+		ProjectMaterials.push_back(*material);
 	}
 }
 
 bool UGKLabLibraryBPLibrary::FindElement(std::string& actor, std::string& mesh, int element, CsvElement& result)
 {
-	std::vector<CsvElement>::iterator it = std::find_if(Elements.begin(), Elements.end(), [&](const CsvElement& o)
+	std::vector<CsvElement>::iterator it = std::find_if(ProjectElements.begin(), ProjectElements.end(), [&](const CsvElement& o)
 	{
 		return (actor.empty() || o.Actor == actor) && (mesh.empty() || o.Mesh == mesh) && (o.Element == element);
 	});
 
-	if (it == Elements.end())
+	if (it == ProjectElements.end())
 	{
 		return false;
 	}
@@ -163,16 +146,16 @@ void UGKLabLibraryBPLibrary::CreateSpecification()
 
 			if (StaticMesh != NULL)
 			{
-				TArray<UMaterialInterface*> Materials = StaticMesh->Materials_DEPRECATED;
+				TArray<UMaterialInterface*> materials = StaticMeshComponent->GetMaterials();
 				FString staticMesh = StaticMesh->GetName();
 
 				FString strMesh = objName + " Mesh:\t" + staticMesh;
 				//GEngine->AddOnScreenDebugMessage(-1, delayDebugMessage, FColor::Black, strMesh);
 				strToSaveIntoFile += "\t" + strMesh + "\r\n";
 
-				for (int32 j = 0; j < Materials.Num(); j++)
+				for (int32 j = 0; j < materials.Num(); j++)
 				{
-					UMaterialInstance* originalMaterial = (UMaterialInstance*)Materials[j];
+					UMaterialInstance* originalMaterial = (UMaterialInstance*)materials[j];
 					if (originalMaterial != NULL)
 					{
 						FString strOriginalName = originalMaterial->GetName();
@@ -191,7 +174,7 @@ void UGKLabLibraryBPLibrary::CreateSpecification()
 						std::string meshStr(TCHAR_TO_UTF8(*staticMesh));
 						if (FindElement(actorStr, meshStr, j, fObj))
 						{
-							description = FString(fObj.Description.c_str());
+							description = FString(fObj.DocumentText.c_str());
 						}
 
 						FString strCurrentName = currentMaterial->GetName();
@@ -473,7 +456,7 @@ void UGKLabLibraryBPLibrary::CreateFileOfMaterials(FString FileName, bool AddDat
 
 	GetMaterialsInFolder(contentDir, "/Game", materialInstances, materials);
 
-	FString strToSaveIntoFile = "Num,Material,\"Material Path\",Texture,ColorR,ColorG,ColorB,Comment,\"Document Placeholder\",\"Document Text\"\r\n";
+	FString strToSaveIntoFile = "Num,Material,\"Material Path\",\"Material FullName\",Texture,ColorR,ColorG,ColorB,Comment,\"Document Text\"\r\n";
 	int csvRecordNum = 1;
 
 	for (int32 i = 0; i < materialInstances->Num(); i++)
@@ -508,7 +491,7 @@ void UGKLabLibraryBPLibrary::CreateFileOfMaterials(FString FileName, bool AddDat
 			+ "," + FString::SanitizeFloat(currentColor.G)
 			+ "," + FString::SanitizeFloat(currentColor.B)
 			//+ "," + strCurrentColor
-			+ ",,\r\n"; // Comment,""Document Placeholder"",""Document Text"" are empty
+			+ ",\r\n"; // Comment,""Document Text"" are empty
 
 		csvRecordNum++;
 	}

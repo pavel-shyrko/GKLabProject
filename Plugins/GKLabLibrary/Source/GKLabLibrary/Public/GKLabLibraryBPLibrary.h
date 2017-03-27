@@ -1,20 +1,11 @@
-
+#include "CsvElement.h"
+#include "CsvMaterial.h"
 #include <vector>
 
 #pragma once
 
 #include "Engine.h"
 #include "GKLabLibraryBPLibrary.generated.h"
-
-struct CsvElement
-{
-	int Num;
-	std::string Actor;
-	std::string Mesh;
-	int Element;
-	std::string Comment;
-	std::string Description;
-};
 
 /* 
 *	Function library class.
@@ -50,7 +41,9 @@ class UGKLabLibraryBPLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Create File of Materials", CompactNodeTitle = "Create File Materials", Keywords = "GKLab"), Category = "GKLab")
 	static void CreateFileOfMaterials(FString FileName, bool AddDateTime);
 
-	static std::vector<CsvElement> Elements;
+	static std::vector<CsvMaterial> ProjectMaterials;
+
+	static std::vector<CsvElement> ProjectElements;
 
 	static bool FindElement(std::string& actor, std::string& mesh, int element, CsvElement& result);
 
