@@ -2,18 +2,29 @@
 #include "GKLabLibraryBPLibrary.h"
 #include "FileManagerGeneric.h"
 #include "CsvRow.h"
+#include <string>
 
-std::istream& operator >> (std::istream& str, CSVRow& data)
+std::wistream& operator >> (std::wistream& str, CSVRow& data)
 {
 	data.readNextRow(str);
 	return str;
 }
 
-bool is_number(const std::string& s)
+bool is_number(const std::wstring& s)
 {
 	return !s.empty() && std::find_if(s.begin(),
 		s.end(), [](char c) { return !std::isdigit(c); }) == s.end();
 }
+
+std::wstring ConvertToWString(const FString str)
+{
+	std::string str1(TCHAR_TO_UTF8(*str));
+	std::wostringstream wstm;
+	const std::ctype<wchar_t>& ctfacet = std::use_facet< std::ctype<wchar_t> >(wstm.getloc());
+	for (size_t i = 0; i < str1.size(); ++i)
+		wstm << ctfacet.widen(str1[i]);
+	return wstm.str();
+};
 
 std::vector<CsvMaterial> UGKLabLibraryBPLibrary::ProjectMaterials;
 
@@ -30,7 +41,7 @@ UGKLabLibraryBPLibrary::UGKLabLibraryBPLibrary(const FObjectInitializer& ObjectI
 
 	FString elementsFilePath = gameConfigDir + "/Elements.csv";
 
-	std::ifstream elementsFile(TCHAR_TO_UTF8(*elementsFilePath));
+	std::wifstream elementsFile(TCHAR_TO_UTF8(*elementsFilePath));
 
 	CSVRow elementCsvRow;
 	while (elementsFile >> elementCsvRow)
@@ -56,7 +67,7 @@ UGKLabLibraryBPLibrary::UGKLabLibraryBPLibrary(const FObjectInitializer& ObjectI
 
 	FString materialsFilePath = gameConfigDir + "/Materials.csv";
 
-	std::ifstream materialFile(TCHAR_TO_UTF8(*materialsFilePath));
+	std::wifstream materialFile(TCHAR_TO_UTF8(*materialsFilePath));
 
 	CSVRow materialCsvRow;
 	while (materialFile >> materialCsvRow)
@@ -77,7 +88,7 @@ UGKLabLibraryBPLibrary::UGKLabLibraryBPLibrary(const FObjectInitializer& ObjectI
 	}
 }
 
-void CreateFile(FString Data, FString palyerName, FString FileName, FString FileExtension, bool AddDateTime)
+void CreateFile(std::wstring Data, FString palyerName, FString FileName, FString FileExtension, bool AddDateTime)
 {
 	FString gameSaveDir = FPaths::GameSavedDir();
 	FPaths::NormalizeDirectoryName(gameSaveDir);
@@ -96,11 +107,14 @@ void CreateFile(FString Data, FString palyerName, FString FileName, FString File
 
 		FString AbsoluteFileName = savePlayerDirectory + "/" + FileName;
 
-		FFileHelper::SaveStringToFile(*Data, *AbsoluteFileName);
+		std::wofstream resultStream;
+		resultStream.open(TCHAR_TO_UTF8(*AbsoluteFileName));
+		resultStream << Data;
+		resultStream.close();
 	}
 }
 
-bool UGKLabLibraryBPLibrary::FindElement(std::string& level, std::string& actor, std::string& mesh, int element, CsvElement& result)
+bool UGKLabLibraryBPLibrary::FindElement(std::wstring& level, std::wstring& actor, std::wstring& mesh, int element, CsvElement& result)
 {
 	std::vector<CsvElement>::iterator it = std::find_if(ProjectElements.begin(), ProjectElements.end(), [&](const CsvElement& o)
 	{
@@ -121,7 +135,7 @@ bool UGKLabLibraryBPLibrary::FindElement(std::string& level, std::string& actor,
 }
 
 
-bool UGKLabLibraryBPLibrary::FindMaterial(std::string& material, std::string& texture, CsvMaterial& result)
+bool UGKLabLibraryBPLibrary::FindMaterial(std::wstring& material, std::wstring& texture, CsvMaterial& result)
 {
 	std::vector<CsvMaterial>::iterator it = std::find_if(ProjectMaterials.begin(), ProjectMaterials.end(), [&](const CsvMaterial& o)
 	{
@@ -167,7 +181,7 @@ void UGKLabLibraryBPLibrary::CreateSpecification(FString FileName, bool AddDateT
 		return;
 	}
 
-	FString strToSaveIntoFile = "";
+	std::wstring strToSaveIntoFile = L"";
 
 	ULevel* level = world->GetCurrentLevel();
 	if (level == NULL)
@@ -210,17 +224,17 @@ void UGKLabLibraryBPLibrary::CreateSpecification(FString FileName, bool AddDateT
 					UMaterialInstance* currentMaterial = (UMaterialInstance*)StaticMeshComponent->GetMaterial(j);
 					if (currentMaterial != NULL)
 					{
-						FString elementDescription;
+						std::wstring elementDescription;
 						CsvElement fElement;
-						std::string levelStr(TCHAR_TO_UTF8(*strLevelName));
-						std::string actorStr(TCHAR_TO_UTF8(*actorFullName));
-						std::string meshStr(TCHAR_TO_UTF8(*staticMeshFullName));
+						std::wstring levelStr(ConvertToWString(TCHAR_TO_UTF8(*strLevelName)));
+						std::wstring actorStr(ConvertToWString(TCHAR_TO_UTF8(*actorFullName)));
+						std::wstring meshStr(ConvertToWString(TCHAR_TO_UTF8(*staticMeshFullName)));
 						if (FindElement(levelStr, actorStr, meshStr, j, fElement))
 						{
-							elementDescription = FString(fElement.DocumentText.c_str());
+							elementDescription = fElement.DocumentText;
 						}
 
-						if (elementDescription.IsEmpty())
+						if (elementDescription.size() == 0)
 						{
 							continue;
 						}
@@ -234,13 +248,13 @@ void UGKLabLibraryBPLibrary::CreateSpecification(FString FileName, bool AddDateT
 							strCurrentTexture = currentTexture->GetName();
 						}
 
-						FString materialDescription = strMaterialName;
+						std::wstring materialDescription = ConvertToWString(TCHAR_TO_UTF8(*strMaterialName));
 						CsvMaterial fMaterial;
-						std::string materialName(TCHAR_TO_UTF8(*strMaterialName));
-						std::string textureName(TCHAR_TO_UTF8(*strCurrentTexture));
+						std::wstring materialName(ConvertToWString(TCHAR_TO_UTF8(*strMaterialName)));
+						std::wstring textureName(ConvertToWString(TCHAR_TO_UTF8(*strCurrentTexture)));
 						if (FindMaterial(materialName, textureName, fMaterial))
 						{
-							materialDescription = FString(fMaterial.DocumentText.c_str());
+							materialDescription = fMaterial.DocumentText;
 						}
 
 						FString strCurrentColor;
@@ -253,16 +267,19 @@ void UGKLabLibraryBPLibrary::CreateSpecification(FString FileName, bool AddDateT
 								+ ")";
 						}
 
-						strToSaveIntoFile += elementDescription + ": Material=" + materialDescription;
+						std::wstringstream itemStream;
+						itemStream << elementDescription << L": Material=" << materialDescription;
 						if (!strCurrentTexture.IsEmpty())
 						{
-							strToSaveIntoFile += "; Texture=" + strCurrentTexture;
+							itemStream << L"; Texture=" << ConvertToWString(strCurrentTexture);
 						}
 						if (!strCurrentColor.IsEmpty())
 						{
-							strToSaveIntoFile += "; Color=" + strCurrentColor;
+							itemStream << L"; Color=" << ConvertToWString(strCurrentColor);
 						}
-						strToSaveIntoFile += "\r\n";
+						itemStream << std::endl;
+
+						strToSaveIntoFile += itemStream.str();
 					}
 				}
 			}
@@ -306,7 +323,7 @@ void UGKLabLibraryBPLibrary::CreateFileOfElements(FString FileName, bool AddDate
 		return;
 	}
 
-	FString strToSaveIntoFile = "Num,Level,\"Actor Name\",\"Actor UniqueID\",\"Actor FullName\",Mesh,Element,Material,Comment,\"Document Placeholder\",\"Document Text\"\r\n";
+	std::wstring strToSaveIntoFile = L"Num,Level,\"Actor Name\",\"Actor UniqueID\",\"Actor FullName\",Mesh,Element,Material,Comment,\"Document Placeholder\",\"Document Text\"\n";
 	int csvRecordNum = 1;
 
 	for (FConstLevelIterator levelItr = world->GetLevelIterator(); levelItr; ++levelItr)
@@ -352,16 +369,21 @@ void UGKLabLibraryBPLibrary::CreateFileOfElements(FString FileName, bool AddDate
 
 						if (currentMaterial != NULL)
 						{
-							strToSaveIntoFile += FString::FromInt(csvRecordNum) 
-								+ "," + strLevelName 
-								+ "," + strActorName
-								+ "," + strActorUniqueID
-								+ "," + strActorFullName 
-								+ "," + strMeshFullName 
-								+ "," + FString::FromInt(j) 
-								+ "," + currentMaterial->GetFullName()
-								+ ",,\r\n"; // Comment,""Document Placeholder"",""Document Text"" are empty
-							
+							std::wstringstream itemStream;
+
+							itemStream << ConvertToWString(FString::FromInt(csvRecordNum))
+								<< L"," << ConvertToWString(strLevelName)
+								<< L"," << ConvertToWString(strActorName)
+								<< L"," << ConvertToWString(strActorUniqueID)
+								<< L"," << ConvertToWString(strActorFullName)
+								<< L"," << ConvertToWString(strMeshFullName)
+								<< L"," << ConvertToWString(FString::FromInt(j))
+								<< L"," << ConvertToWString(currentMaterial->GetFullName())
+								<< L",,"; // Comment,""Document Placeholder"",""Document Text"" are empty
+							itemStream << std::endl;
+
+							strToSaveIntoFile += itemStream.str();
+
 							csvRecordNum++;
 						}
 					}
@@ -470,7 +492,7 @@ void UGKLabLibraryBPLibrary::CreateFileOfMaterials(FString FileName, bool AddDat
 
 	GetMaterialsInFolder(contentDir, "/Game", materials);
 
-	FString strToSaveIntoFile = "Num,Material,\"Material FullName\",Texture,ColorR,ColorG,ColorB,Comment,\"Document Text\"\r\n";
+	std::wstring strToSaveIntoFile = L"Num,Material,\"Material FullName\",Texture,ColorR,ColorG,ColorB,Comment,\"Document Text\"\n";
 	int csvRecordNum = 1;
 
 	for (int32 i = 0; i < materials->Num(); i++)
@@ -487,21 +509,27 @@ void UGKLabLibraryBPLibrary::CreateFileOfMaterials(FString FileName, bool AddDat
 			strCurrentTexture = currentTexture->GetName();
 		}
 		
-		strToSaveIntoFile += FString::FromInt(csvRecordNum)
-			+ "," + strCurrentName
-			+ "," + strCurrentFullName
-			+ "," + strCurrentTexture
-			+ ",";
+		std::wstringstream itemStream;
+
+		itemStream << ConvertToWString(FString::FromInt(csvRecordNum))
+			<< L"," << ConvertToWString(strCurrentName)
+			<< L"," << ConvertToWString(strCurrentFullName)
+			<< L"," << ConvertToWString(strCurrentTexture)
+			<< L",";
 
 		FLinearColor currentColor = FLinearColor();
 		if (currentMaterial->GetVectorParameterValue(FName("Color"), currentColor))
 		{
-			strToSaveIntoFile += FString::SanitizeFloat(currentColor.R)
-				+ "," + FString::SanitizeFloat(currentColor.G)
-				+ "," + FString::SanitizeFloat(currentColor.B);
+			itemStream << ConvertToWString(FString::SanitizeFloat(currentColor.R))
+				<< L"," << ConvertToWString(FString::SanitizeFloat(currentColor.G))
+				<< L"," << ConvertToWString(FString::SanitizeFloat(currentColor.B));
 		}
 
-		strToSaveIntoFile += ",,\r\n"; // Comment,""Document Placeholder"",""Document Text"" are empty
+		itemStream << L",,"; // Comment,""Document Placeholder"",""Document Text"" are empty
+
+		itemStream << std::endl;
+
+		strToSaveIntoFile += itemStream.str();
 
 		csvRecordNum++;
 	}

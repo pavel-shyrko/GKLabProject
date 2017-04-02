@@ -8,16 +8,16 @@
 struct CsvElement
 {
 	int Num;
-	std::string Level;
-	std::string Actor;
-	std::string UniqueID;
-	std::string ActorFullName;
-	std::string Mesh;
+	std::wstring Level;
+	std::wstring Actor;
+	std::wstring UniqueID;
+	std::wstring ActorFullName;
+	std::wstring Mesh;
 	int Element;
-	std::string Material;
-	std::string Comment;
-	std::string DocumentPlaceholder;
-	std::string DocumentText;
+	std::wstring Material;
+	std::wstring Comment;
+	std::wstring DocumentPlaceholder;
+	std::wstring DocumentText;
 };
 
 #endif /* CSVELEMENT_H */

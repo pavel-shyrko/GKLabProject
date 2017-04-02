@@ -15,5 +15,8 @@
 			"Name": "GKLabBlueprintLibrary",
 			"Enabled": false
 		}
+	],
+	"TargetPlatforms": [
+		"WindowsNoEditor"
 	]
 }

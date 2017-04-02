@@ -8,14 +8,14 @@
 struct CsvMaterial
 {
 	int Num;
-	std::string Material;
-	std::string MaterialFullName;
-	std::string Texture;
-	std::string ColorRed;
-	std::string ColorGreen;
-	std::string ColorBlue;
-	std::string Comment;
-	std::string DocumentText;
+	std::wstring Material;
+	std::wstring MaterialFullName;
+	std::wstring Texture;
+	std::wstring ColorRed;
+	std::wstring ColorGreen;
+	std::wstring ColorBlue;
+	std::wstring Comment;
+	std::wstring DocumentText;
 };
 
 #endif /* CSVMATERIAL_H */

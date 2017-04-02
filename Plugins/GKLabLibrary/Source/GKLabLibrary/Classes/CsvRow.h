@@ -15,7 +15,7 @@
 class CSVRow
 {
 public:
-	std::string const& operator[](std::size_t index) const
+	std::wstring const& operator[](std::size_t index) const
 	{
 		return m_data[index];
 	}
@@ -25,16 +25,16 @@ public:
 		return m_data.size();
 	}
 
-	void readNextRow(std::istream& str)
+	void readNextRow(std::wistream& str)
 	{
-		std::string line;
+		std::wstring line;
 		std::getline(str, line);
 
-		std::stringstream lineStream(line);
-		std::string cell;
+		std::wstringstream  lineStream(line);
+		std::wstring cell;
 
 		m_data.clear();
-		while (std::getline(lineStream, cell, ','))
+		while (std::getline(lineStream, cell, L','))
 		{
 			m_data.push_back(cell);
 		}
@@ -42,11 +42,11 @@ public:
 		if (!lineStream && cell.empty())
 		{
 			// If there was a trailing comma then add an empty element.
-			m_data.push_back("");
+			m_data.push_back(L"");
 		}
 	}
 
 private:
-	std::vector<std::string> m_data;
+	std::vector<std::wstring> m_data;
 };
 

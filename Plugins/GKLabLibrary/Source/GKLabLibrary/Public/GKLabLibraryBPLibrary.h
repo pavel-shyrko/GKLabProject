@@ -45,7 +45,7 @@ class UGKLabLibraryBPLibrary : public UBlueprintFunctionLibrary
 
 	static std::vector<CsvElement> ProjectElements;
 
-	static bool FindElement(std::string& level, std::string& actor, std::string& mesh, int element, CsvElement& result);
+	static bool FindElement(std::wstring& level, std::wstring& actor, std::wstring& mesh, int element, CsvElement& result);
 	
-	static bool UGKLabLibraryBPLibrary::FindMaterial(std::string& material, std::string& texture, CsvMaterial& result);
+	static bool UGKLabLibraryBPLibrary::FindMaterial(std::wstring& material, std::wstring& texture, CsvMaterial& result);
 };
